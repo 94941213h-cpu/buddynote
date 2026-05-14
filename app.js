@@ -1189,20 +1189,24 @@ function openAddRound() {
       </div>
       <div class="form-group">
         <label class="form-label">이동 시간 (분)</label>
-        <div style="display:flex;gap:6px;margin-bottom:6px">
-          <button onclick="addRoundDepFromCurrent()" style="flex:1;padding:8px 4px;background:white;border:1.5px solid var(--border);border-radius:10px;font-size:11px;font-weight:600;cursor:pointer">📍 현재위치</button>
-          <button onclick="addRoundDepFromHome()" style="flex:1;padding:8px 4px;background:white;border:1.5px solid var(--border);border-radius:10px;font-size:11px;font-weight:600;cursor:pointer">🏠 집</button>
-          <button onclick="addRoundDepShowAddr()" style="flex:1;padding:8px 4px;background:white;border:1.5px solid var(--border);border-radius:10px;font-size:11px;font-weight:600;cursor:pointer">🔍 주소</button>
-        </div>
-        <div id="add-dep-addr-wrap" style="display:none;margin-bottom:6px;display:none">
-          <div style="display:flex;gap:6px">
-            <input id="add-dep-addr" class="form-input" type="text" placeholder="출발지 주소" style="margin:0;flex:1">
-            <button onclick="addRoundDepFromAddr()" style="padding:0 12px;background:var(--green);color:white;border-radius:10px;font-size:12px;font-weight:700">확인</button>
-          </div>
-        </div>
-        <div id="add-dep-status" style="font-size:12px;color:var(--green);margin-bottom:4px;display:none"></div>
         <input class="form-input" id="inp-travel" type="number" placeholder="60" value="60" min="10" max="300">
       </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">출발지로 이동시간 계산</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button onclick="addRoundDepFromCurrent()" style="flex:1;padding:11px 6px;background:white;border:1.5px solid var(--border);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer">📍 현재위치</button>
+        <button onclick="addRoundDepFromHome()" style="flex:1;padding:11px 6px;background:white;border:1.5px solid var(--border);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer">🏠 집</button>
+        <button onclick="addRoundDepShowAddr()" style="flex:1;padding:11px 6px;background:white;border:1.5px solid var(--border);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer">🔍 주소</button>
+      </div>
+      <div id="add-dep-addr-wrap" style="display:none;margin-bottom:8px">
+        <div style="display:flex;gap:8px">
+          <input id="add-dep-addr" class="form-input" type="text" placeholder="출발지 주소 입력" style="margin:0;flex:1">
+          <button onclick="addRoundDepFromAddr()" style="padding:0 14px;background:var(--green);color:white;border-radius:12px;font-size:13px;font-weight:700">확인</button>
+        </div>
+      </div>
+      <div id="add-dep-status" style="font-size:12px;color:var(--green);font-weight:600;display:none;padding:8px 12px;background:var(--green-pale);border-radius:10px"></div>
     </div>
 
     <div class="form-group">
@@ -1734,15 +1738,81 @@ function saveDeparture(roundId) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r) return;
   const travel = parseInt(document.getElementById('dep-travel').value) || 60;
-  const manualTime = document.getElementById('dep-time').value;
   r.travelMinutes = travel;
-  r.departureTime = manualTime || (r.teeTime ? calcDepartureTime(r.teeTime, travel) : '');
+  r.departureTime = r.teeTime ? calcDepartureTime(r.teeTime, travel) : '';
   saveState();
   closeModal();
   renderRoundTab();
   if (state.viewingRoundId === roundId) renderRoundDetail(roundId);
   showToast('출발 시간이 설정됐어요');
+
+  // 캘린더 알람 제안
+  if (r.departureTime && r.date) {
+    setTimeout(() => openAlarmModal(roundId), 400);
+  }
 }
+
+function openAlarmModal(roundId) {
+  const r = state.rounds.find(x => x.id === roundId);
+  if (!r || !r.departureTime) return;
+  const html = `
+    <div class="modal-title">📅 캘린더 알람 설정</div>
+    <div style="padding:0 20px 20px;text-align:center">
+      <div style="font-size:40px;margin-bottom:12px">⏰</div>
+      <div style="font-size:22px;font-weight:800;color:var(--gold);margin-bottom:4px">${r.departureTime} 출발</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:20px">${r.courseName} · ${formatDate(r.date)}</div>
+      <button onclick="downloadCalendar('${roundId}')" style="width:100%;padding:16px;background:var(--green);color:white;border-radius:14px;font-size:15px;font-weight:700;margin-bottom:10px">
+        📅 캘린더에 추가 (알람 포함)
+      </button>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">다운로드 후 열면 폰 캘린더에 자동 추가 · 출발 30분 전 알림</div>
+      <button onclick="closeModal()" style="width:100%;padding:14px;background:var(--bg);color:var(--text2);border-radius:14px;font-size:14px;font-weight:600">나중에</button>
+    </div>
+  `;
+  openModal(html);
+}
+
+function downloadCalendar(roundId) {
+  const r = state.rounds.find(x => x.id === roundId);
+  if (!r || !r.departureTime || !r.date) return;
+
+  const [dh, dm] = r.departureTime.split(':').map(Number);
+  const [th, tm] = (r.teeTime || '00:00').split(':').map(Number);
+  const dateStr = r.date.replace(/-/g, '');
+
+  const fmt = (h, m) => `${dateStr}T${String(h).padStart(2,'0')}${String(m).padStart(2,'0')}00`;
+  const now = new Date().toISOString().replace(/[-:.]/g, '').slice(0,15) + 'Z';
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//버디노트//KR',
+    'BEGIN:VEVENT',
+    `UID:buddynote-${r.id}@buddynote`,
+    `DTSTAMP:${now}`,
+    `DTSTART:${fmt(dh, dm)}`,
+    `DTEND:${fmt(th, tm)}`,
+    `SUMMARY:⛳ ${r.courseName} 출발`,
+    `DESCRIPTION:티오프 ${r.teeTime || ''} · 이동 ${r.travelMinutes || 60}분`,
+    'BEGIN:VALARM',
+    'TRIGGER:-PT30M',
+    'ACTION:DISPLAY',
+    `DESCRIPTION:${r.courseName} 출발 30분 전이에요!`,
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${r.courseName}_출발알람.ics`;
+  a.click();
+  closeModal();
+  showToast('📅 캘린더 파일 다운로드됨 — 열어서 추가하세요');
+}
+
+window.openAlarmModal = openAlarmModal;
+window.downloadCalendar = downloadCalendar;
 
 // ═══════════════════════════════════════
 // 21. ROUND ACTIONS
