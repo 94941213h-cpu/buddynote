@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>아이콘 생성</title></head>
+<body style="font-family:sans-serif;padding:40px;text-align:center">
+<h2>버디노트 아이콘 생성</h2>
+<p>아래 버튼을 눌러 icon-192.png와 icon-512.png를 다운로드하세요</p>
+<canvas id="c192" width="192" height="192" style="display:none"></canvas>
+<canvas id="c512" width="512" height="512" style="display:none"></canvas>
+<br><br>
+<button onclick="gen(192)" style="padding:12px 24px;background:#1B4D3E;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;margin:8px">icon-192.png 다운로드</button>
+<button onclick="gen(512)" style="padding:12px 24px;background:#1B4D3E;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;margin:8px">icon-512.png 다운로드</button>
+<p style="color:#888;font-size:13px;margin-top:24px">다운로드 후 버디노트 폴더에 저장하세요</p>
+<script>
+function gen(size) {
+  const canvas = document.getElementById('c' + size);
+  const ctx = canvas.getContext('2d');
+  const s = size;
+  // 배경
+  const grad = ctx.createLinearGradient(0,0,s,s);
+  grad.addColorStop(0, '#1B4D3E');
+  grad.addColorStop(1, '#2D6A58');
+  ctx.fillStyle = grad;
+  roundRect(ctx, 0, 0, s, s, s * 0.22);
+  ctx.fill();
+  // 이모지
+  ctx.font = `${s * 0.52}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('⛳', s / 2, s / 2 + s * 0.04);
+
+  const a = document.createElement('a');
+  a.download = `icon-${size}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+</script>
+</body></html>
