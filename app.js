@@ -1189,6 +1189,18 @@ function openAddRound() {
       </div>
       <div class="form-group">
         <label class="form-label">이동 시간 (분)</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button onclick="addRoundDepFromCurrent()" style="flex:1;padding:8px 4px;background:white;border:1.5px solid var(--border);border-radius:10px;font-size:11px;font-weight:600;cursor:pointer">📍 현재위치</button>
+          <button onclick="addRoundDepFromHome()" style="flex:1;padding:8px 4px;background:white;border:1.5px solid var(--border);border-radius:10px;font-size:11px;font-weight:600;cursor:pointer">🏠 집</button>
+          <button onclick="addRoundDepShowAddr()" style="flex:1;padding:8px 4px;background:white;border:1.5px solid var(--border);border-radius:10px;font-size:11px;font-weight:600;cursor:pointer">🔍 주소</button>
+        </div>
+        <div id="add-dep-addr-wrap" style="display:none;margin-bottom:6px;display:none">
+          <div style="display:flex;gap:6px">
+            <input id="add-dep-addr" class="form-input" type="text" placeholder="출발지 주소" style="margin:0;flex:1">
+            <button onclick="addRoundDepFromAddr()" style="padding:0 12px;background:var(--green);color:white;border-radius:10px;font-size:12px;font-weight:700">확인</button>
+          </div>
+        </div>
+        <div id="add-dep-status" style="font-size:12px;color:var(--green);margin-bottom:4px;display:none"></div>
         <input class="form-input" id="inp-travel" type="number" placeholder="60" value="60" min="10" max="300">
       </div>
     </div>
@@ -1937,6 +1949,67 @@ window.saveSettings = saveSettings;
 window.toggleCheck = toggleCheck;
 window.editDeparture = editDeparture;
 window.saveDeparture = saveDeparture;
+function addRoundSetTravel(mins, msg) {
+  const inp = document.getElementById('inp-travel');
+  if (inp) inp.value = mins;
+  const st = document.getElementById('add-dep-status');
+  if (st) { st.style.display = 'block'; st.textContent = msg; }
+}
+
+async function addRoundDepCalc(fromLat, fromLng, label) {
+  const courseName = document.getElementById('inp-course')?.value.trim();
+  const toLat = _selectedCourse?.lat;
+  const toLng = _selectedCourse?.lng;
+
+  if (!toLat || !toLng) {
+    addRoundSetTravel(60, '⚠️ 골프장을 먼저 선택해주세요 (자동완성에서 선택)');
+    return;
+  }
+  addRoundSetTravel(60, '⏳ 경로 계산 중...');
+  const mins = await getRouteDuration(fromLat, fromLng, toLat, toLng);
+  if (mins) {
+    addRoundSetTravel(mins, `${label} → 도로 기준 약 ${mins}분`);
+  } else {
+    const dist = distanceKm(fromLat, fromLng, toLat, toLng);
+    const est = depEstimateMinutes(dist);
+    addRoundSetTravel(est, `${label} → 약 ${Math.round(dist)}km · 추정 ${est}분`);
+  }
+}
+
+function addRoundDepFromCurrent() {
+  if (!navigator.geolocation) { addRoundSetTravel(60, '⚠️ GPS 사용 불가'); return; }
+  addRoundSetTravel(60, '📍 현재 위치 확인 중...');
+  navigator.geolocation.getCurrentPosition(
+    pos => addRoundDepCalc(pos.coords.latitude, pos.coords.longitude, '📍 현재위치'),
+    () => addRoundSetTravel(60, '⚠️ 위치 접근 거부됨'),
+    { timeout: 10000 }
+  );
+}
+
+function addRoundDepFromHome() {
+  if (!state.settings.homeCoords) { showToast('설정에서 집 주소를 먼저 입력해주세요'); return; }
+  addRoundDepCalc(state.settings.homeCoords.lat, state.settings.homeCoords.lng, '🏠 집');
+}
+
+function addRoundDepShowAddr() {
+  const wrap = document.getElementById('add-dep-addr-wrap');
+  if (wrap) { wrap.style.display = 'block'; document.getElementById('add-dep-addr')?.focus(); }
+}
+
+async function addRoundDepFromAddr() {
+  const addr = document.getElementById('add-dep-addr')?.value.trim();
+  if (!addr) return;
+  addRoundSetTravel(60, '🔍 주소 검색 중...');
+  const geo = await geocode(addr);
+  if (!geo) { addRoundSetTravel(60, '⚠️ 주소를 찾을 수 없어요'); return; }
+  addRoundDepCalc(geo.lat, geo.lng, `🔍 ${addr}`);
+}
+
+window.addRoundDepFromCurrent = addRoundDepFromCurrent;
+window.addRoundDepFromHome = addRoundDepFromHome;
+window.addRoundDepShowAddr = addRoundDepShowAddr;
+window.addRoundDepFromAddr = addRoundDepFromAddr;
+
 window.depFromCurrent = depFromCurrent;
 window.depFromHome = depFromHome;
 window.depManual = depManual;
