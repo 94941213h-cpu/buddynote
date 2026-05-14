@@ -111,7 +111,6 @@ let state = {
   activeTab: 'reservation',
   viewingRoundId: null,
   prepareRoundId: null,
-  roundTabRoundId: null,
 };
 
 let db = null;
@@ -991,141 +990,6 @@ function selectPrepareRound(id) {
   renderPrepareTab();
 }
 
-function selectRoundTabRound(id) {
-  state.roundTabRoundId = id;
-  renderRoundTab();
-}
-
-// ═══════════════════════════════════════
-// 15. RENDER — ROUND TAB
-// ═══════════════════════════════════════
-function renderRoundTab() {
-  const el = document.getElementById('round-content');
-  const today = todayStr();
-  const upcoming = state.rounds.filter(r => r.date >= today && r.status !== 'completed').sort((a,b) => a.date.localeCompare(b.date));
-
-  if (upcoming.length === 0) {
-    el.innerHTML = `<div class="no-round-state"><div class="no-round-icon">⛳</div><div class="no-round-text">오늘 예약된 라운드가 없어요</div><div class="no-round-sub">예약 탭에서 라운드를 추가해보세요</div></div>`;
-    return;
-  }
-
-  // 오늘 라운드 우선, 없으면 다음꺼
-  const defaultId = (upcoming.find(r => r.date === today) || upcoming[0]).id;
-  if (!state.roundTabRoundId || !upcoming.find(r => r.id === state.roundTabRoundId)) {
-    state.roundTabRoundId = defaultId;
-  }
-  const r = upcoming.find(r => r.id === state.roundTabRoundId);
-  const isToday = r.date === today;
-  const wx = r.weather;
-  const wxI = wx ? wxInfo(wx.code) : null;
-
-  let html = '';
-
-  // 라운드가 2개 이상이면 선택 칩 표시
-  if (upcoming.length > 1) {
-    html += `<div style="display:flex;gap:8px;padding:12px 16px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:white">`;
-    upcoming.forEach(u => {
-      const active = u.id === r.id;
-      const uIsToday = u.date === today;
-      html += `<button onclick="selectRoundTabRound('${u.id}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:${active ? 'var(--green)' : 'var(--bg)'};color:${active ? 'white' : 'var(--text2)'};box-shadow:0 1px 4px rgba(0,0,0,0.08)">${uIsToday ? '오늘 · ' : ''}${u.courseName}<span style="font-size:11px;opacity:.75;margin-left:4px">${formatDate(u.date)}</span></button>`;
-    });
-    html += `</div>`;
-  }
-
-  // 날씨 배너
-  if (wx && wxI) {
-    const rain = isRain(wx.code);
-    html += `
-      <div style="background:${rain ? 'linear-gradient(135deg,#1E40AF,#3B82F6)' : 'linear-gradient(135deg,var(--green),var(--green-light))'};padding:16px 20px;color:white;margin-bottom:2px">
-        <div style="font-size:12px;opacity:.75;font-weight:600">${isToday ? '오늘' : formatDate(r.date)} · ${r.courseName}</div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
-          <span style="font-size:36px">${wxI.emoji}</span>
-          <div>
-            <div style="font-size:22px;font-weight:700">${wx.maxTemp}° / ${wx.minTemp}°</div>
-            <div style="font-size:13px;opacity:.85">${wxI.desc}${wx.rainProb > 0 ? ` · 강수확률 ${wx.rainProb}%` : ''}</div>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  if (isToday) {
-    // 출발 시간 카드
-    const depTime = r.departureTime || (r.teeTime ? calcDepartureTime(r.teeTime, r.travelMinutes || 60) : null);
-    if (depTime) {
-      const now = new Date();
-      const [dh, dm] = depTime.split(':').map(Number);
-      const depDate = new Date(); depDate.setHours(dh, dm, 0, 0);
-      const diff = depDate - now;
-      const diffMin = Math.round(diff / 60000);
-      let countdownText = '';
-      if (diff > 0) countdownText = `${diffMin}분 후 출발`;
-      else if (diff > -60 * 60000) countdownText = '지금 출발!';
-      else countdownText = '이미 출발 시간이 지났어요';
-
-      html += `
-        <div style="padding:12px 16px 0">
-          <div class="departure-card">
-            <div class="departure-label">출발 시간</div>
-            <div class="departure-time">${depTime}</div>
-            <div class="departure-sub">티오프 ${r.teeTime} · ${r.travelMinutes || 60}분 소요 예상</div>
-            <div class="departure-countdown">${countdownText}</div>
-          </div>
-        </div>`;
-    }
-
-    // 네비 버튼
-    html += `
-      <div style="padding:12px 16px 0">
-        <div class="section-label" style="padding:0 0 10px">네비게이션으로 이동</div>
-        <div class="action-row">
-          <button class="btn-nav tmap" onclick="openNav('tmap','${r.id}')">
-            <span style="font-size:24px">🗺️</span>
-            <span>T map</span>
-          </button>
-          <button class="btn-nav kakao" onclick="openNav('kakao','${r.id}')">
-            <span style="font-size:24px">🟡</span>
-            <span>카카오내비</span>
-          </button>
-        </div>
-      </div>`;
-
-    // 스코어 기록
-    html += `
-      <div style="padding:12px 16px 0">
-        <div class="section-label" style="padding:0 0 10px">라운드 기록</div>
-        <button class="btn-primary" style="margin:0;width:100%" onclick="openScoreEntry('${r.id}')">
-          ${r.status === 'completed' ? '✓ 기록 완료 (수정하기)' : '스코어 · 사진 기록하기 ⛳'}
-        </button>
-      </div>`;
-  } else {
-    // 다음 라운드 카운트다운
-    html += `
-      <div style="padding:16px">
-        <div style="background:white;border-radius:18px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.06);text-align:center">
-          <div style="font-size:13px;color:var(--text2);margin-bottom:4px">다음 라운드까지</div>
-          <div style="font-size:48px;font-weight:800;color:var(--green);letter-spacing:-2px">${dday(r.date)}</div>
-          <div style="font-size:14px;color:var(--text2);margin-top:4px">${r.courseName} · ${formatDate(r.date)} ${r.teeTime || ''}</div>
-        </div>
-      </div>`;
-
-    // 출발 시간 설정
-    const depTime = r.departureTime || (r.teeTime ? calcDepartureTime(r.teeTime, r.travelMinutes || 60) : '');
-    html += `
-      <div style="padding:0 16px">
-        <div style="background:white;border-radius:18px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
-          <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px">출발 예정 시간</div>
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="font-size:36px;font-weight:800;color:var(--gold);flex:1">${depTime || '--:--'}</div>
-            <button onclick="editDeparture('${r.id}')" style="background:var(--green-pale);color:var(--green);padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700">수정</button>
-          </div>
-          ${r.travelMinutes ? `<div style="font-size:12px;color:var(--text3);margin-top:6px">이동 약 ${r.travelMinutes}분 + 여유 30분</div>` : ''}
-        </div>
-      </div>`;
-  }
-
-  el.innerHTML = html;
-}
-
 // ═══════════════════════════════════════
 // 16. RENDER — HISTORY TAB
 // ═══════════════════════════════════════
@@ -1426,7 +1290,6 @@ async function loadRoundData(roundId) {
   }
   renderReservationTab();
   if (state.activeTab === 'prepare') renderPrepareTab();
-  if (state.activeTab === 'round') renderRoundTab();
 }
 
 // ═══════════════════════════════════════
@@ -1803,7 +1666,6 @@ function saveDeparture(roundId) {
   r.departureTime = r.teeTime ? calcDepartureTime(r.teeTime, travel) : '';
   saveState();
   closeModal();
-  renderRoundTab();
   if (state.viewingRoundId === roundId) renderRoundDetail(roundId);
   showToast('출발 시간이 설정됐어요');
 }
@@ -1917,7 +1779,6 @@ function switchTab(tabName) {
 
   if (tabName === 'reservation') renderReservationTab();
   else if (tabName === 'prepare') renderPrepareTab();
-  else if (tabName === 'round') renderRoundTab();
   else if (tabName === 'history') renderHistoryTab();
 }
 
