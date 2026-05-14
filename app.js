@@ -1349,8 +1349,11 @@ async function loadRoundData(roundId) {
     saveState();
   }
 
-  // 2. 날씨
-  if (!r.weather && r.courseCoords && r.date) {
+  // 2. 날씨 — 7일 이내 라운드는 매번 갱신, 이후는 한 번만
+  const daysUntil = Math.ceil((new Date(r.date) - new Date()) / 86400000);
+  const shouldRefresh = r.courseCoords && r.date &&
+    (!r.weather || (daysUntil >= 0 && daysUntil <= 7));
+  if (shouldRefresh) {
     const wx = await fetchWeather(r.courseCoords.lat, r.courseCoords.lng, r.date);
     if (wx) {
       r.weather = wx;
@@ -1757,6 +1760,7 @@ function viewRound(roundId) {
   document.getElementById('btn-back').classList.remove('hidden');
   document.getElementById('header-title').textContent = '라운드 상세';
   renderRoundDetail(roundId);
+  loadRoundData(roundId); // 7일 이내 날씨 갱신
 }
 
 function backToList() {
