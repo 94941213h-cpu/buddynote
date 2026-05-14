@@ -1554,27 +1554,34 @@ function editDeparture(roundId) {
   const html = `
     <div class="modal-title">출발 시간 설정</div>
 
-    <div style="padding:0 20px 20px">
-      <div style="display:flex;gap:8px">
-        <button onclick="depFromCurrent('${roundId}')" style="flex:1;padding:16px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.8">
+    <div style="padding:0 20px 16px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">출발지를 선택하세요</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button onclick="depFromCurrent('${roundId}')" style="flex:1;padding:14px 6px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;line-height:1.9">
           📍<br>현재 위치
         </button>
-        <button onclick="depFromHome('${roundId}')" style="flex:1;padding:16px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.8;opacity:${hasHome ? 1 : 0.4}">
+        <button onclick="depFromHome('${roundId}')" style="flex:1;padding:14px 6px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;line-height:1.9;opacity:${hasHome ? 1 : 0.4}" ${!hasHome ? 'title="설정에서 집 주소를 먼저 입력해주세요"' : ''}>
           🏠<br>${hasHome ? '집' : '집 (미설정)'}
         </button>
-        <button onclick="depManual()" style="flex:1;padding:16px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.8">
-          ✏️<br>직접 입력
+        <button onclick="depShowAddrInput()" style="flex:1;padding:14px 6px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;line-height:1.9">
+          🔍<br>주소 입력
         </button>
       </div>
 
-      <div id="dep-result" style="display:none;margin-top:12px;padding:12px 14px;background:var(--green-pale);border-radius:12px;font-size:13px;color:var(--green);font-weight:600">
+      <div id="dep-addr-wrap" style="display:none;margin-bottom:12px">
+        <div style="display:flex;gap:8px">
+          <input id="dep-addr-input" class="form-input" type="text" placeholder="출발지 주소 입력 (예: 서울 강남구)" style="flex:1;margin:0">
+          <button onclick="depFromAddr('${roundId}')" style="padding:0 16px;background:var(--green);color:white;border-radius:12px;font-weight:700;font-size:13px;white-space:nowrap">확인</button>
+        </div>
       </div>
+
+      <div id="dep-status" style="display:none;padding:12px 14px;background:var(--green-pale);border-radius:12px;font-size:13px;color:var(--green);font-weight:600;margin-bottom:4px"></div>
     </div>
 
     <div style="margin:0 20px 8px;padding:16px;background:white;border-radius:14px;border:1.5px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-size:13px;color:var(--text2)">이동시간</div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-size:13px;color:var(--text2)">이동시간 (수정 가능)</div>
+        <div style="display:flex;align-items:center;gap:6px">
           <input id="dep-travel" type="number" value="${travel}" min="10" max="300"
             style="width:70px;text-align:center;font-size:18px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:6px"
             oninput="updateDepPreview('${roundId}')">
@@ -1584,7 +1591,7 @@ function editDeparture(roundId) {
       <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-size:12px;color:var(--text2)">권장 출발시간</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">티오프 ${r.teeTime || '--:--'} 기준</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">티오프 ${r.teeTime || '--:--'} − 이동 − 여유 30분</div>
         </div>
         <div id="dep-preview" style="font-size:32px;font-weight:800;color:var(--gold)">${depTime}</div>
       </div>
@@ -1600,6 +1607,18 @@ function editDeparture(roundId) {
 
 function depEstimateMinutes(dist) {
   return Math.max(15, Math.round(dist * 1.3 / 70 * 60) + 15);
+}
+
+async function getRouteDuration(fromLat, fromLng, toLat, toLng) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=false`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.code === 'Ok' && data.routes?.length > 0) {
+      return Math.ceil(data.routes[0].duration / 60);
+    }
+  } catch (e) {}
+  return null;
 }
 
 function depShowResult(roundId, dist, minutes, label) {
@@ -1627,32 +1646,69 @@ function updateDepPreview(roundId) {
   if (hint) hint.textContent = `이동 ${minutes}분 + 여유 30분`;
 }
 
-function depFromCurrent(roundId) {
+function depSetStatus(msg) {
+  const el = document.getElementById('dep-status');
+  if (el) { el.style.display = 'block'; el.textContent = msg; }
+}
+
+async function depCalcFromCoords(roundId, fromLat, fromLng, label) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r) return;
-  const result = document.getElementById('dep-result');
-  const resultText = document.getElementById('dep-result-text');
-  if (result && resultText) { result.style.display = 'block'; resultText.textContent = '📍 현재 위치 확인 중...'; }
 
-  if (!navigator.geolocation) { showToast('GPS를 사용할 수 없어요. 직접 입력해주세요.'); return; }
+  if (!r.courseCoords) {
+    depSetStatus('⚠️ 골프장 좌표 없음 — 이동시간을 직접 입력해주세요');
+    return;
+  }
 
+  depSetStatus('⏳ 경로 계산 중...');
+  const mins = await getRouteDuration(fromLat, fromLng, r.courseCoords.lat, r.courseCoords.lng);
+
+  if (mins) {
+    depSetStatus(`${label} → 도로 기준 약 ${mins}분`);
+    const inp = document.getElementById('dep-travel');
+    if (inp) inp.value = mins;
+    updateDepPreview(roundId);
+  } else {
+    // OSRM 실패 시 직선거리 추정
+    const dist = distanceKm(fromLat, fromLng, r.courseCoords.lat, r.courseCoords.lng);
+    const estimated = depEstimateMinutes(dist);
+    depSetStatus(`${label} → 약 ${Math.round(dist)}km · 추정 ${estimated}분`);
+    const inp = document.getElementById('dep-travel');
+    if (inp) inp.value = estimated;
+    updateDepPreview(roundId);
+  }
+}
+
+function depFromCurrent(roundId) {
+  if (!navigator.geolocation) { depSetStatus('⚠️ GPS 사용 불가 — 주소를 직접 입력해주세요'); return; }
+  depSetStatus('📍 현재 위치 확인 중...');
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      if (!r.courseCoords) { showToast('골프장 위치 정보가 없어요. 직접 입력해주세요.'); return; }
-      const dist = distanceKm(pos.coords.latitude, pos.coords.longitude, r.courseCoords.lat, r.courseCoords.lng);
-      depShowResult(roundId, dist, depEstimateMinutes(dist), '📍 현재 위치');
-    },
-    () => { showToast('위치 접근이 거부됐어요. 직접 입력해주세요.'); },
-    { timeout: 8000 }
+    pos => depCalcFromCoords(roundId, pos.coords.latitude, pos.coords.longitude, '📍 현재 위치'),
+    () => depSetStatus('⚠️ 위치 접근 거부 — 주소를 직접 입력해주세요'),
+    { timeout: 10000 }
   );
 }
 
 function depFromHome(roundId) {
-  const r = state.rounds.find(x => x.id === roundId);
-  if (!state.settings.homeCoords) { showToast('설정에서 집 주소를 먼저 입력해주세요'); return; }
-  if (!r || !r.courseCoords) { showToast('골프장 위치 정보가 없어요. 직접 입력해주세요.'); return; }
-  const dist = distanceKm(state.settings.homeCoords.lat, state.settings.homeCoords.lng, r.courseCoords.lat, r.courseCoords.lng);
-  depShowResult(roundId, dist, depEstimateMinutes(dist), '🏠 집');
+  if (!state.settings.homeCoords) {
+    showToast('⚙️ 설정에서 집 주소를 먼저 입력해주세요');
+    return;
+  }
+  depCalcFromCoords(roundId, state.settings.homeCoords.lat, state.settings.homeCoords.lng, '🏠 집');
+}
+
+function depShowAddrInput() {
+  const wrap = document.getElementById('dep-addr-wrap');
+  if (wrap) { wrap.style.display = 'block'; document.getElementById('dep-addr-input')?.focus(); }
+}
+
+async function depFromAddr(roundId) {
+  const addr = document.getElementById('dep-addr-input')?.value.trim();
+  if (!addr) { showToast('주소를 입력해주세요'); return; }
+  depSetStatus('🔍 주소 검색 중...');
+  const geo = await geocode(addr);
+  if (!geo) { depSetStatus('⚠️ 주소를 찾을 수 없어요. 다시 입력해주세요'); return; }
+  depCalcFromCoords(roundId, geo.lat, geo.lng, `🔍 ${addr}`);
 }
 
 function depManual() {
@@ -1882,6 +1938,8 @@ window.saveDeparture = saveDeparture;
 window.depFromCurrent = depFromCurrent;
 window.depFromHome = depFromHome;
 window.depManual = depManual;
+window.depShowAddrInput = depShowAddrInput;
+window.depFromAddr = depFromAddr;
 window.updateDepPreview = updateDepPreview;
 
 function fixVH() {
