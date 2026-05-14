@@ -356,10 +356,16 @@ function getWxConditions(round) {
 // ═══════════════════════════════════════
 // 8. NAVER MAP (맛집 연결)
 // ═══════════════════════════════════════
+function stripCourseSuffix(name) {
+  return name
+    .replace(/\s*(컨트리클럽|골프클럽|골프장|리조트|CC|GC|Golf\s*Club|Country\s*Club)\s*$/i, '')
+    .trim();
+}
+
 function openNaverRestaurants(roundId) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r) return;
-  const name = r.courseName || '골프장';
+  const name = stripCourseSuffix(r.courseName || '골프장');
   const query = encodeURIComponent(name + ' 맛집');
 
   // 모바일이면 앱 딥링크 먼저, 실패하면 웹
