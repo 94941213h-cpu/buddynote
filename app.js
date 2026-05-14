@@ -963,6 +963,20 @@ function initChecklist(round) {
   }));
 }
 
+// 날씨 갱신 시: checked 상태 유지, enabled만 재계산
+function refreshChecklist(round) {
+  const cond = getWxConditions(round);
+  const prev = round.checklist || [];
+  return CHECKLIST.map(item => {
+    const existing = prev.find(x => x.id === item.id);
+    return {
+      ...item,
+      checked: existing ? existing.checked : false,
+      enabled: wxItemVisible(item, cond),
+    };
+  });
+}
+
 function toggleCheck(roundId, itemId) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r || !r.checklist) return;
@@ -1401,7 +1415,7 @@ async function loadRoundData(roundId) {
     const wx = await fetchWeather(r.courseCoords.lat, r.courseCoords.lng, r.date);
     if (wx) {
       r.weather = wx;
-      r.checklist = initChecklist(r);
+      r.checklist = refreshChecklist(r); // checked 유지, 날씨 조건만 재계산
       saveState();
     }
   }
