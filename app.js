@@ -359,17 +359,16 @@ function getWxConditions(round) {
 function openNaverRestaurants(roundId) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r) return;
-  const lat = r.courseCoords?.lat;
-  const lng = r.courseCoords?.lng;
   const name = r.courseName || '골프장';
+  const query = encodeURIComponent(name + ' 맛집');
 
-  if (lat && lng) {
-    const deepLink = `nmap://search?query=맛집&lat=${lat}&lng=${lng}&appname=com.buddynote`;
-    const webUrl = `https://map.naver.com/v5/search/맛집?c=${lng},${lat},15,0,0,0,dh`;
-    window.location.href = deepLink;
-    setTimeout(() => window.open(webUrl, '_blank'), 1500);
+  // 모바일이면 앱 딥링크 먼저, 실패하면 웹
+  if (/android|iphone|ipad/i.test(navigator.userAgent) && r.courseCoords) {
+    const { lat, lng } = r.courseCoords;
+    window.location.href = `nmap://search?query=${encodeURIComponent(name + ' 맛집')}&lat=${lat}&lng=${lng}&appname=com.buddynote`;
+    setTimeout(() => window.open(`https://map.naver.com/v5/search/${query}`, '_blank'), 1500);
   } else {
-    window.open(`https://map.naver.com/v5/search/${encodeURIComponent(name + ' 근처 맛집')}`, '_blank');
+    window.open(`https://map.naver.com/v5/search/${query}`, '_blank');
   }
 }
 
@@ -1904,5 +1903,12 @@ window.saveDeparture = saveDeparture;
 window.depFromCurrent = depFromCurrent;
 window.depFromHome = depFromHome;
 window.depManual = depManual;
+
+function fixVH() {
+  document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+}
+fixVH();
+window.addEventListener('resize', fixVH);
+window.addEventListener('orientationchange', () => setTimeout(fixVH, 100));
 
 document.addEventListener('DOMContentLoaded', init);

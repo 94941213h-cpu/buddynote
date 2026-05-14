@@ -60,9 +60,9 @@ a { color: inherit; text-decoration: none; }
 /* ═══════════════════════════════════════
    APP LAYOUT
 ═══════════════════════════════════════ */
-#app { height: 100vh; position: relative; }
+#app { height: calc(var(--vh, 1vh) * 100); position: relative; }
 #main {
-  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
   display: flex; flex-direction: column;
   padding-top: var(--safe-top);
 }
