@@ -1554,42 +1554,40 @@ function editDeparture(roundId) {
   const html = `
     <div class="modal-title">출발 시간 설정</div>
 
-    ${r.teeTime ? `<div style="text-align:center;padding:0 20px 16px">
-      <div style="font-size:13px;color:var(--text2)">티오프</div>
-      <div style="font-size:28px;font-weight:800;color:var(--green)">${r.teeTime}</div>
-    </div>` : ''}
-
-    <div style="padding:0 20px 16px">
-      <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px">어디서 출발하세요?</div>
+    <div style="padding:0 20px 20px">
       <div style="display:flex;gap:8px">
-        <button onclick="depFromCurrent('${roundId}')" style="flex:1;padding:14px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer">
+        <button onclick="depFromCurrent('${roundId}')" style="flex:1;padding:16px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.8">
           📍<br>현재 위치
         </button>
-        <button onclick="depFromHome('${roundId}')" style="flex:1;padding:14px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;opacity:${hasHome ? 1 : 0.4}">
+        <button onclick="depFromHome('${roundId}')" style="flex:1;padding:16px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.8;opacity:${hasHome ? 1 : 0.4}">
           🏠<br>${hasHome ? '집' : '집 (미설정)'}
         </button>
-        <button onclick="depManual(')" style="flex:1;padding:14px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer">
+        <button onclick="depManual()" style="flex:1;padding:16px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.8">
           ✏️<br>직접 입력
         </button>
       </div>
-    </div>
 
-    <div id="dep-result" style="display:none;margin:0 20px 16px;padding:14px 16px;background:var(--green-pale);border-radius:14px">
-      <div id="dep-result-text" style="font-size:13px;color:var(--green)"></div>
+      <div id="dep-result" style="display:none;margin-top:12px;padding:12px 14px;background:var(--green-pale);border-radius:12px;font-size:13px;color:var(--green);font-weight:600">
+      </div>
     </div>
 
     <div style="margin:0 20px 8px;padding:16px;background:white;border-radius:14px;border:1.5px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-size:13px;color:var(--text2)">이동시간 (분)</div>
-        <input id="dep-travel" type="number" value="${travel}" min="10" max="300"
-          style="width:80px;text-align:center;font-size:18px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:6px"
-          oninput="updateDepPreview('${roundId}')">
+        <div style="font-size:13px;color:var(--text2)">이동시간</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input id="dep-travel" type="number" value="${travel}" min="10" max="300"
+            style="width:70px;text-align:center;font-size:18px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:6px"
+            oninput="updateDepPreview('${roundId}')">
+          <span style="font-size:13px;color:var(--text2)">분</span>
+        </div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:13px;color:var(--text2)">권장 출발시간</div>
-        <div id="dep-preview" style="font-size:24px;font-weight:800;color:var(--gold)">${depTime}</div>
+        <div>
+          <div style="font-size:12px;color:var(--text2)">권장 출발시간</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">티오프 ${r.teeTime || '--:--'} 기준</div>
+        </div>
+        <div id="dep-preview" style="font-size:32px;font-weight:800;color:var(--gold)">${depTime}</div>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px;text-align:right">이동 ${travel}분 + 여유 30분</div>
     </div>
 
     <div style="padding:0 20px 4px">
@@ -1609,10 +1607,9 @@ function depShowResult(roundId, dist, minutes, label) {
   if (travelInput) travelInput.value = minutes;
 
   const result = document.getElementById('dep-result');
-  const resultText = document.getElementById('dep-result-text');
-  if (result && resultText) {
+  if (result) {
     result.style.display = 'block';
-    resultText.innerHTML = `${label} 기준 약 <strong>${Math.round(dist)}km</strong> · 예상 이동 <strong>${minutes}분</strong>`;
+    result.innerHTML = `${label} → 약 <strong>${Math.round(dist)}km</strong> · 예상 이동 <strong>${minutes}분</strong>`;
   }
   updateDepPreview(roundId);
 }
