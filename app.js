@@ -110,6 +110,8 @@ let state = {
   settings: { homeAddress: '', homeCoords: null, kakaoKey: '', kakaoRestKey: '' },
   activeTab: 'reservation',
   viewingRoundId: null,
+  prepareRoundId: null,
+  roundTabRoundId: null,
 };
 
 let db = null;
@@ -855,12 +857,17 @@ function renderPrepareTab() {
   const el = document.getElementById('prepare-content');
   const today = todayStr();
   const upcoming = state.rounds.filter(r => r.date >= today && r.status !== 'completed').sort((a,b) => a.date.localeCompare(b.date));
-  const r = upcoming[0];
 
-  if (!r) {
+  if (upcoming.length === 0) {
     el.innerHTML = `<div class="no-round-state"><div class="no-round-icon">🏌️</div><div class="no-round-text">다가오는 라운드가 없어요</div><div class="no-round-sub">예약 탭에서 라운드를 추가하면<br>준비물 체크리스트가 생성돼요</div></div>`;
     return;
   }
+
+  // 선택된 라운드 유효성 확인
+  if (!state.prepareRoundId || !upcoming.find(r => r.id === state.prepareRoundId)) {
+    state.prepareRoundId = upcoming[0].id;
+  }
+  const r = upcoming.find(r => r.id === state.prepareRoundId);
 
   const cond = getWxConditions(r);
   const wx = r.weather;
@@ -878,7 +885,19 @@ function renderPrepareTab() {
   const done = Object.values(grouped).flat().filter(i => i.checked).length;
   const pct = total > 0 ? Math.round(done / total * 100) : 0;
 
-  let html = `
+  let html = '';
+
+  // 라운드가 2개 이상이면 선택 칩 표시
+  if (upcoming.length > 1) {
+    html += `<div style="display:flex;gap:8px;padding:12px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">`;
+    upcoming.forEach(u => {
+      const active = u.id === r.id;
+      html += `<button onclick="selectPrepareRound('${u.id}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:${active ? 'var(--green)' : 'white'};color:${active ? 'white' : 'var(--text2)'};box-shadow:0 1px 4px rgba(0,0,0,0.1)">${u.courseName}<span style="font-size:11px;opacity:.75;margin-left:4px">${formatDate(u.date)}</span></button>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `
     <div style="padding:12px 16px 0">
       <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:8px">
         ${r.courseName} · ${formatDate(r.date)}
@@ -953,26 +972,51 @@ function toggleCheck(roundId, itemId) {
   renderPrepareTab();
 }
 
+function selectPrepareRound(id) {
+  state.prepareRoundId = id;
+  renderPrepareTab();
+}
+
+function selectRoundTabRound(id) {
+  state.roundTabRoundId = id;
+  renderRoundTab();
+}
+
 // ═══════════════════════════════════════
 // 15. RENDER — ROUND TAB
 // ═══════════════════════════════════════
 function renderRoundTab() {
   const el = document.getElementById('round-content');
   const today = todayStr();
-  const todayRound = state.rounds.find(r => r.date === today);
-  const nextRound = state.rounds.filter(r => r.date > today && r.status !== 'completed').sort((a,b) => a.date.localeCompare(b.date))[0];
+  const upcoming = state.rounds.filter(r => r.date >= today && r.status !== 'completed').sort((a,b) => a.date.localeCompare(b.date));
 
-  if (!todayRound && !nextRound) {
+  if (upcoming.length === 0) {
     el.innerHTML = `<div class="no-round-state"><div class="no-round-icon">⛳</div><div class="no-round-text">오늘 예약된 라운드가 없어요</div><div class="no-round-sub">예약 탭에서 라운드를 추가해보세요</div></div>`;
     return;
   }
 
-  const r = todayRound || nextRound;
+  // 오늘 라운드 우선, 없으면 다음꺼
+  const defaultId = (upcoming.find(r => r.date === today) || upcoming[0]).id;
+  if (!state.roundTabRoundId || !upcoming.find(r => r.id === state.roundTabRoundId)) {
+    state.roundTabRoundId = defaultId;
+  }
+  const r = upcoming.find(r => r.id === state.roundTabRoundId);
   const isToday = r.date === today;
   const wx = r.weather;
   const wxI = wx ? wxInfo(wx.code) : null;
 
   let html = '';
+
+  // 라운드가 2개 이상이면 선택 칩 표시
+  if (upcoming.length > 1) {
+    html += `<div style="display:flex;gap:8px;padding:12px 16px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:white">`;
+    upcoming.forEach(u => {
+      const active = u.id === r.id;
+      const uIsToday = u.date === today;
+      html += `<button onclick="selectRoundTabRound('${u.id}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:${active ? 'var(--green)' : 'var(--bg)'};color:${active ? 'white' : 'var(--text2)'};box-shadow:0 1px 4px rgba(0,0,0,0.08)">${uIsToday ? '오늘 · ' : ''}${u.courseName}<span style="font-size:11px;opacity:.75;margin-left:4px">${formatDate(u.date)}</span></button>`;
+    });
+    html += `</div>`;
+  }
 
   // 날씨 배너
   if (wx && wxI) {
