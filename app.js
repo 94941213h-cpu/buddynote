@@ -1548,60 +1548,51 @@ function editDeparture(roundId) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r) return;
   const hasHome = !!(state.settings.homeAddress && state.settings.homeCoords);
-  const hasCourse = !!r.courseCoords;
+  const travel = r.travelMinutes || 60;
+  const depTime = r.teeTime ? calcDepartureTime(r.teeTime, travel) : '--:--';
 
   const html = `
-    <div class="modal-title">출발지 설정</div>
+    <div class="modal-title">출발 시간 설정</div>
+
+    ${r.teeTime ? `<div style="text-align:center;padding:0 20px 16px">
+      <div style="font-size:13px;color:var(--text2)">티오프</div>
+      <div style="font-size:28px;font-weight:800;color:var(--green)">${r.teeTime}</div>
+    </div>` : ''}
 
     <div style="padding:0 20px 16px">
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">어디서 출발하세요?</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-
-        <button onclick="depFromCurrent('${roundId}')" style="display:flex;align-items:center;gap:14px;padding:16px;background:white;border:1.5px solid var(--border);border-radius:14px;text-align:left;cursor:pointer">
-          <span style="font-size:26px">📍</span>
-          <div>
-            <div style="font-weight:700;font-size:15px">현재 위치</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:2px">GPS로 현재 위치에서 거리 계산</div>
-          </div>
+      <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px">어디서 출발하세요?</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="depFromCurrent('${roundId}')" style="flex:1;padding:14px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer">
+          📍<br>현재 위치
         </button>
-
-        <button onclick="depFromHome('${roundId}')" style="display:flex;align-items:center;gap:14px;padding:16px;background:white;border:1.5px solid ${hasHome ? 'var(--border)' : '#E5E7EB'};border-radius:14px;text-align:left;cursor:pointer;opacity:${hasHome ? 1 : 0.5}">
-          <span style="font-size:26px">🏠</span>
-          <div>
-            <div style="font-weight:700;font-size:15px">집에서 출발</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:2px">${hasHome ? state.settings.homeAddress : '설정 → 기본 출발지 주소 입력 필요'}</div>
-          </div>
+        <button onclick="depFromHome('${roundId}')" style="flex:1;padding:14px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;opacity:${hasHome ? 1 : 0.4}">
+          🏠<br>${hasHome ? '집' : '집 (미설정)'}
         </button>
-
-        <button onclick="depManual('${roundId}')" style="display:flex;align-items:center;gap:14px;padding:16px;background:white;border:1.5px solid var(--border);border-radius:14px;text-align:left;cursor:pointer">
-          <span style="font-size:26px">✏️</span>
-          <div>
-            <div style="font-weight:700;font-size:15px">직접 입력</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:2px">이동 시간을 직접 입력해요</div>
-          </div>
+        <button onclick="depManual(')" style="flex:1;padding:14px 8px;background:white;border:1.5px solid var(--border);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer">
+          ✏️<br>직접 입력
         </button>
-
       </div>
     </div>
 
     <div id="dep-result" style="display:none;margin:0 20px 16px;padding:14px 16px;background:var(--green-pale);border-radius:14px">
-      <div id="dep-result-text" style="font-size:14px;color:var(--green);font-weight:600"></div>
+      <div id="dep-result-text" style="font-size:13px;color:var(--green)"></div>
     </div>
 
-    <div id="dep-manual-form">
-      <div class="form-group">
-        <label class="form-label">이동 시간 (분)</label>
-        <input class="form-input" id="dep-travel" type="number" value="${r.travelMinutes || 60}" min="10" max="300">
-        <div class="form-hint">위 버튼으로 자동 계산하거나 직접 수정하세요</div>
+    <div style="margin:0 20px 8px;padding:16px;background:white;border-radius:14px;border:1.5px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;color:var(--text2)">이동시간 (분)</div>
+        <input id="dep-travel" type="number" value="${travel}" min="10" max="300"
+          style="width:80px;text-align:center;font-size:18px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:6px"
+          oninput="updateDepPreview('${roundId}')">
       </div>
-      <div class="form-group">
-        <label class="form-label">출발 시간 직접 지정 (선택)</label>
-        <input class="form-input" id="dep-time" type="time" value="${r.departureTime || ''}">
-        <div class="form-hint">비워두면 티오프 기준 자동 계산 (이동시간 + 여유 30분)</div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:13px;color:var(--text2)">권장 출발시간</div>
+        <div id="dep-preview" style="font-size:24px;font-weight:800;color:var(--gold)">${depTime}</div>
       </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px;text-align:right">이동 ${travel}분 + 여유 30분</div>
     </div>
 
-    <div style="padding:0 20px">
+    <div style="padding:0 20px 4px">
       <button class="btn-primary" onclick="saveDeparture('${roundId}')">저장하기</button>
     </div>
     <div style="height:16px"></div>
@@ -1610,11 +1601,10 @@ function editDeparture(roundId) {
 }
 
 function depEstimateMinutes(dist) {
-  // 직선거리 → 예상 이동시간 (도로계수 1.3, 평균 70km/h)
   return Math.max(15, Math.round(dist * 1.3 / 70 * 60) + 15);
 }
 
-function depShowResult(dist, minutes, label) {
+function depShowResult(roundId, dist, minutes, label) {
   const travelInput = document.getElementById('dep-travel');
   if (travelInput) travelInput.value = minutes;
 
@@ -1622,67 +1612,53 @@ function depShowResult(dist, minutes, label) {
   const resultText = document.getElementById('dep-result-text');
   if (result && resultText) {
     result.style.display = 'block';
-    resultText.innerHTML = `${label} 기준 약 <strong>${Math.round(dist)}km</strong> · 예상 이동시간 <strong>${minutes}분</strong>`;
+    resultText.innerHTML = `${label} 기준 약 <strong>${Math.round(dist)}km</strong> · 예상 이동 <strong>${minutes}분</strong>`;
   }
+  updateDepPreview(roundId);
+}
+
+function updateDepPreview(roundId) {
+  const r = state.rounds.find(x => x.id === roundId);
+  const travelInput = document.getElementById('dep-travel');
+  const preview = document.getElementById('dep-preview');
+  if (!travelInput || !preview) return;
+  const minutes = parseInt(travelInput.value) || 60;
+  if (r && r.teeTime) {
+    preview.textContent = calcDepartureTime(r.teeTime, minutes);
+  }
+  const hint = preview.parentElement?.nextElementSibling;
+  if (hint) hint.textContent = `이동 ${minutes}분 + 여유 30분`;
 }
 
 function depFromCurrent(roundId) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r) return;
-
-  const resultText = document.getElementById('dep-result-text');
   const result = document.getElementById('dep-result');
-  if (result && resultText) {
-    result.style.display = 'block';
-    resultText.textContent = '📍 현재 위치 확인 중...';
-  }
+  const resultText = document.getElementById('dep-result-text');
+  if (result && resultText) { result.style.display = 'block'; resultText.textContent = '📍 현재 위치 확인 중...'; }
 
-  if (!navigator.geolocation) {
-    if (resultText) resultText.textContent = '위치 기능을 지원하지 않아요. 직접 입력해주세요.';
-    depManual(roundId);
-    return;
-  }
+  if (!navigator.geolocation) { showToast('GPS를 사용할 수 없어요. 직접 입력해주세요.'); return; }
 
   navigator.geolocation.getCurrentPosition(
     pos => {
-      const { latitude: lat, longitude: lng } = pos.coords;
-      if (r.courseCoords) {
-        const dist = distanceKm(lat, lng, r.courseCoords.lat, r.courseCoords.lng);
-        const mins = depEstimateMinutes(dist);
-        depShowResult(dist, mins, '현재 위치');
-      } else {
-        if (resultText) resultText.textContent = '골프장 위치 정보가 없어요. 직접 입력해주세요.';
-        depManual(roundId);
-      }
+      if (!r.courseCoords) { showToast('골프장 위치 정보가 없어요. 직접 입력해주세요.'); return; }
+      const dist = distanceKm(pos.coords.latitude, pos.coords.longitude, r.courseCoords.lat, r.courseCoords.lng);
+      depShowResult(roundId, dist, depEstimateMinutes(dist), '📍 현재 위치');
     },
-    () => {
-      if (resultText) resultText.textContent = '위치 접근이 거부됐어요. 직접 입력해주세요.';
-      depManual(roundId);
-    },
+    () => { showToast('위치 접근이 거부됐어요. 직접 입력해주세요.'); },
     { timeout: 8000 }
   );
 }
 
 function depFromHome(roundId) {
   const r = state.rounds.find(x => x.id === roundId);
-  if (!r || !state.settings.homeCoords) {
-    showToast('설정에서 집 주소를 먼저 입력해주세요');
-    return;
-  }
-  if (!r.courseCoords) {
-    showToast('골프장 위치 정보가 없어요. 직접 입력해주세요.');
-    depManual(roundId);
-    return;
-  }
-  const { lat, lng } = state.settings.homeCoords;
-  const dist = distanceKm(lat, lng, r.courseCoords.lat, r.courseCoords.lng);
-  const mins = depEstimateMinutes(dist);
-  depShowResult(dist, mins, '🏠 집');
+  if (!state.settings.homeCoords) { showToast('설정에서 집 주소를 먼저 입력해주세요'); return; }
+  if (!r || !r.courseCoords) { showToast('골프장 위치 정보가 없어요. 직접 입력해주세요.'); return; }
+  const dist = distanceKm(state.settings.homeCoords.lat, state.settings.homeCoords.lng, r.courseCoords.lat, r.courseCoords.lng);
+  depShowResult(roundId, dist, depEstimateMinutes(dist), '🏠 집');
 }
 
-function depManual(roundId) {
-  const result = document.getElementById('dep-result');
-  if (result) result.style.display = 'none';
+function depManual() {
   const inp = document.getElementById('dep-travel');
   if (inp) inp.focus();
 }
@@ -1909,6 +1885,7 @@ window.saveDeparture = saveDeparture;
 window.depFromCurrent = depFromCurrent;
 window.depFromHome = depFromHome;
 window.depManual = depManual;
+window.updateDepPreview = updateDepPreview;
 
 function fixVH() {
   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
