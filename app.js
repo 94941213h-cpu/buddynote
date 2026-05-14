@@ -1745,6 +1745,7 @@ function saveDeparture(roundId) {
   renderRoundTab();
   if (state.viewingRoundId === roundId) renderRoundDetail(roundId);
   showToast('출발 시간이 설정됐어요');
+}
 
 // ═══════════════════════════════════════
 // 21. ROUND ACTIONS
