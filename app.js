@@ -782,13 +782,14 @@ async function renderRoundDetail(roundId) {
             <div class="detail-row-value">${formatDateFull(r.date)} · ${r.teeTime || '--:--'}</div>
           </div>
         </div>
-        <div class="detail-row">
+        <div class="detail-row" style="cursor:pointer" onclick="editDeparture('${r.id}')">
           <div class="detail-row-icon">🚗</div>
           <div class="detail-row-content">
             <div class="detail-row-label">출발 예정 시간</div>
-            <div class="detail-row-value">${depTime || '미설정'}</div>
+            <div class="detail-row-value">${depTime || '탭해서 설정하기'}</div>
             ${r.travelMinutes ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">이동 약 ${r.travelMinutes}분 + 여유 30분</div>` : ''}
           </div>
+          <div style="color:var(--text3);font-size:12px;padding-left:8px">수정 ›</div>
         </div>
         ${r.reservationNumber ? `
         <div class="detail-row">
@@ -1599,6 +1600,7 @@ function editDeparture(roundId) {
 
     <div style="padding:0 20px 4px">
       <button class="btn-primary" onclick="saveDeparture('${roundId}')">저장하기</button>
+      <button class="btn-secondary" onclick="closeModal()">닫기</button>
     </div>
     <div style="height:16px"></div>
   `;
