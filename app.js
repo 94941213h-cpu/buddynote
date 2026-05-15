@@ -689,31 +689,6 @@ async function renderRoundDetail(roundId) {
   // 스코어 (완료된 경우)
   let scoreHTML = '';
   if (r.status === 'completed') {
-    let holeTableHTML = '';
-    if (r.holeScores && r.holeScores.some(v => v)) {
-      const hs = r.holeScores;
-      const front = hs.slice(0, 9);
-      const back  = hs.slice(9, 18);
-      const frontSum = front.reduce((a, v) => a + (v || 0), 0);
-      const backSum  = back.reduce((a, v) => a + (v || 0), 0);
-      function holeRow(arr, start) {
-        return arr.map((v, i) => `<td style="text-align:center;padding:4px 2px;font-size:13px;font-weight:600">${v || '-'}</td>`).join('');
-      }
-      function numRow(arr, start) {
-        return arr.map((_, i) => `<td style="text-align:center;padding:2px;font-size:10px;color:var(--text3)">${start+i+1}</td>`).join('');
-      }
-      holeTableHTML = `
-        <div style="overflow-x:auto;margin-top:12px">
-          <table style="width:100%;border-collapse:collapse;min-width:300px">
-            <tr>${numRow(front,0)}<td style="padding:2px 6px;font-size:10px;color:var(--text3);font-weight:700">전반</td></tr>
-            <tr style="background:var(--bg);border-radius:8px">${holeRow(front,0)}<td style="text-align:center;padding:4px 6px;font-size:13px;font-weight:800;color:var(--green)">${frontSum}</td></tr>
-            <tr><td colspan="10" style="height:6px"></td></tr>
-            <tr>${numRow(back,9)}<td style="padding:2px 6px;font-size:10px;color:var(--text3);font-weight:700">후반</td></tr>
-            <tr style="background:var(--bg)">${holeRow(back,9)}<td style="text-align:center;padding:4px 6px;font-size:13px;font-weight:800;color:var(--green)">${backSum}</td></tr>
-          </table>
-        </div>`;
-    }
-
     scoreHTML = `
       <div class="detail-section">
         <div class="section-label">스코어</div>
@@ -729,7 +704,6 @@ async function renderRoundDetail(roundId) {
                 <div class="score-value">${c.score}</div>
               </div>`).join('')}
           </div>
-          ${holeTableHTML}
         </div>
       </div>`;
   }
@@ -1362,24 +1336,6 @@ function openScoreEntry(roundId) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r) return;
 
-  const holes = r.holes || 18;
-  const holeCount = holes === 9 ? 9 : 18;
-  const existing = r.holeScores || [];
-
-  // 홀별 입력 그리드
-  const frontHoles = Array.from({length: 9}, (_, i) => i);
-  const backHoles  = Array.from({length: holeCount === 9 ? 0 : 9}, (_, i) => i + 9);
-
-  function holeInputs(indices) {
-    return indices.map(i => `
-      <div style="text-align:center">
-        <div style="font-size:10px;color:var(--text3);margin-bottom:2px">${i+1}</div>
-        <input type="number" id="hole-${i}" value="${existing[i] || ''}" min="1" max="15" placeholder="-"
-          oninput="recalcHoleTotal()"
-          style="width:32px;height:32px;text-align:center;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;padding:0">
-      </div>`).join('');
-  }
-
   const compInputs = (r.companions || []).map((name, i) => `
     <div class="score-input-row" style="margin-top:8px">
       <div class="score-name">👤 ${name}</div>
@@ -1390,50 +1346,22 @@ function openScoreEntry(roundId) {
     <div class="modal-title">스코어 기록</div>
 
     <div style="padding:0 20px 16px;border-bottom:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px">🏌️ 나의 스코어</div>
-      <div class="score-input-row" style="margin-bottom:12px">
-        <div class="score-name">총합</div>
+      <div class="score-input-row">
+        <div class="score-name">🏌️ 나의 스코어</div>
         <input class="score-input" type="number" id="score-me" value="${r.myScore || ''}" min="40" max="200" placeholder="--">
       </div>
-
-      <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden">
-        <button onclick="toggleHoleInput()" style="width:100%;background:var(--bg);border:none;padding:10px 16px;font-size:13px;font-weight:600;color:var(--green);text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
-          <span>홀별 입력 (선택)</span>
-          <span id="hole-toggle-icon">＋</span>
-        </button>
-        <div id="hole-input-wrap" style="display:none;padding:12px 10px;background:white">
-          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">
-            ${holeInputs(frontHoles)}
-          </div>
-          ${backHoles.length ? `
-          <div style="border-top:1px dashed var(--border);margin:8px 0"></div>
-          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-            ${holeInputs(backHoles)}
-          </div>` : ''}
-          <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--text3)">
-            전반 <span id="front-sum">-</span> · 후반 <span id="back-sum">-</span> · 합계 <span id="hole-total" style="font-weight:700;color:var(--green)">-</span>
-          </div>
-        </div>
-      </div>
+      ${r.companions && r.companions.length ? compInputs : ''}
     </div>
-
-    ${r.companions && r.companions.length ? `
-    <div style="padding:12px 20px 16px;border-bottom:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:4px">👥 동반자 스코어 (선택)</div>
-      ${compInputs}
-    </div>` : ''}
 
     <div class="form-group" style="padding-top:16px">
-      <label class="form-label">📸 스코어카드 사진으로 자동인식</label>
-      <label class="photo-attach-btn" for="score-photo-input">사진 선택 (스코어카드 또는 스마트스코어 화면)</label>
+      <label class="form-label">📸 스코어카드 · 사진 추가</label>
+      <div style="display:flex;gap:8px">
+        <label class="photo-attach-btn" for="score-photo-input" style="flex:1;text-align:center">스코어카드 (자동인식)</label>
+        <label class="photo-attach-btn" for="round-photo-input" style="flex:1;text-align:center">라운드 사진</label>
+      </div>
       <input type="file" id="score-photo-input" accept="image/*" style="display:none" onchange="doOCR(event,'${roundId}')">
-      <div id="ocr-status" class="ocr-status">사진을 찍으면 자동으로 스코어를 인식해요<br>(인식 후 수동 수정 가능)</div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">📷 라운드 사진 추가</label>
-      <label class="photo-attach-btn" for="round-photo-input">사진 추가하기</label>
       <input type="file" id="round-photo-input" accept="image/*" multiple style="display:none" onchange="addRoundPhotos(event,'${roundId}')">
+      <div id="ocr-status" class="ocr-status">스코어카드 사진을 찍으면 총합을 자동인식해요</div>
       <div id="photo-preview" class="photo-preview-row"></div>
     </div>
 
@@ -1448,52 +1376,11 @@ function openScoreEntry(roundId) {
   `;
   openModal(html);
 
-  // 기존에 홀별 입력이 있으면 펼쳐서 보여주기
-  if (existing.some(v => v)) {
-    toggleHoleInput();
-    recalcHoleTotal();
-  }
-
-  // 기존 사진 표시
   if (r.photos && r.photos.length > 0) {
     r.photos.forEach(async pid => {
       const data = await getPhoto(pid);
       if (data) addPhotoThumb(data, pid);
     });
-  }
-}
-
-function toggleHoleInput() {
-  const wrap = document.getElementById('hole-input-wrap');
-  const icon = document.getElementById('hole-toggle-icon');
-  if (!wrap) return;
-  const open = wrap.style.display === 'none';
-  wrap.style.display = open ? 'block' : 'none';
-  icon.textContent = open ? '－' : '＋';
-}
-
-function recalcHoleTotal() {
-  const vals = Array.from({length: 18}, (_, i) => {
-    const el = document.getElementById(`hole-${i}`);
-    return el ? parseInt(el.value) || 0 : 0;
-  });
-  const front = vals.slice(0, 9).reduce((a, b) => a + b, 0);
-  const back  = vals.slice(9).reduce((a, b) => a + b, 0);
-  const total = front + back;
-  const frontFilled = vals.slice(0, 9).some(v => v > 0);
-  const backFilled  = vals.slice(9).some(v => v > 0);
-
-  const frontEl = document.getElementById('front-sum');
-  const backEl  = document.getElementById('back-sum');
-  const totalEl = document.getElementById('hole-total');
-  if (frontEl) frontEl.textContent = frontFilled ? front : '-';
-  if (backEl)  backEl.textContent  = backFilled  ? back  : '-';
-  if (totalEl) totalEl.textContent = (frontFilled || backFilled) ? total : '-';
-
-  // 총합 칸에 자동 반영
-  if (frontFilled || backFilled) {
-    const scoreEl = document.getElementById('score-me');
-    if (scoreEl && !scoreEl.dataset.manual) scoreEl.value = total;
   }
 }
 
@@ -1587,14 +1474,6 @@ async function saveScore(roundId) {
 
   const myScoreVal = parseInt(document.getElementById('score-me').value);
   if (!isNaN(myScoreVal)) r.myScore = myScoreVal;
-
-  // 홀별 스코어 저장
-  const holeVals = Array.from({length: 18}, (_, i) => {
-    const el = document.getElementById(`hole-${i}`);
-    return el ? (parseInt(el.value) || null) : null;
-  });
-  if (holeVals.some(v => v !== null)) r.holeScores = holeVals;
-  else r.holeScores = null;
 
   r.companionScores = (r.companions || []).map((name, i) => {
     const val = parseInt(document.getElementById(`score-comp-${i}`)?.value);
