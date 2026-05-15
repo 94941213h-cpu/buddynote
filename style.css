@@ -451,8 +451,6 @@ a { color: inherit; text-decoration: none; }
   font-size: 12px;
   display: flex; align-items: center; justify-content: center;
 }
-.ocr-status { font-size: 13px; color: var(--text2); text-align: center; padding: 8px; }
-.ocr-status.loading { color: var(--green); }
 
 /* ═══════════════════════════════════════
    HISTORY TAB
