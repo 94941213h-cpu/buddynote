@@ -588,16 +588,15 @@ function renderReservationTab() {
   const listEl = document.getElementById('reservation-list');
   const today = todayStr();
 
-  const upcoming = state.rounds.filter(r => r.date >= today).sort((a,b) => a.date.localeCompare(b.date));
+  const upcoming = state.rounds.filter(r => r.date >= today && r.status !== 'completed').sort((a,b) => a.date.localeCompare(b.date));
   const past = state.rounds.filter(r => r.date < today && r.status !== 'completed').sort((a,b) => b.date.localeCompare(a.date));
-  const completed = state.rounds.filter(r => r.status === 'completed').sort((a,b) => b.date.localeCompare(a.date));
 
-  if (state.rounds.length === 0) {
+  if (upcoming.length === 0 && past.length === 0) {
     listEl.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">⛳</div>
-        <div class="empty-title">등록된 예약이 없어요</div>
-        <div class="empty-desc">아래 + 버튼을 눌러<br>골프 예약을 추가해보세요</div>
+        <div class="empty-title">등록된 라운드가 없어요</div>
+        <div class="empty-desc">아래 + 버튼을 눌러<br>골프 라운드를 추가해보세요</div>
       </div>`;
     return;
   }
@@ -608,12 +607,8 @@ function renderReservationTab() {
     upcoming.forEach(r => { html += roundCardHTML(r, today); });
   }
   if (past.length) {
-    html += `<div class="section-label">지난 라운드 (기록 미완료)</div>`;
+    html += `<div class="section-label">기록 미완료</div>`;
     past.forEach(r => { html += roundCardHTML(r, today); });
-  }
-  if (completed.length) {
-    html += `<div class="section-label">완료</div>`;
-    completed.forEach(r => { html += roundCardHTML(r, today); });
   }
   listEl.innerHTML = html;
 }
@@ -622,13 +617,14 @@ function roundCardHTML(r, today) {
   const status = getRoundStatus(r);
   const ddayText = dday(r.date);
   const badgeCls = status === 'today' ? 'today' : (status === 'past' ? 'past' : '');
-  const cardCls = r.status === 'completed' ? 'completed' : (status === 'today' ? 'today' : '');
+  const cardCls = status === 'today' ? 'today' : '';
   const wxEmoji = r.weather ? wxInfo(r.weather.code).emoji : '';
+  const needsRecord = status === 'past' && r.status !== 'completed';
   return `
     <div class="round-card ${cardCls}" data-id="${r.id}">
       <div class="round-card-top">
         <div class="round-course">${r.courseName || '골프장 미정'}</div>
-        <div class="dday-badge ${badgeCls}">${r.status === 'completed' ? '완료' : ddayText}</div>
+        <div class="dday-badge ${badgeCls}">${ddayText}</div>
       </div>
       <div class="round-meta">
         <span class="round-meta-item">📅 ${formatDate(r.date)}</span>
@@ -636,6 +632,7 @@ function roundCardHTML(r, today) {
         ${wxEmoji ? `<span class="round-meta-item">${wxEmoji} ${r.weather.maxTemp}°</span>` : ''}
       </div>
       ${r.companions && r.companions.length ? `<div class="round-meta"><span class="round-meta-item">👥 ${r.companions.join(', ')}</span></div>` : ''}
+      ${needsRecord ? `<div style="margin-top:8px;font-size:13px;font-weight:700;color:var(--gold)">📝 기록 남기기 →</div>` : ''}
     </div>`;
 }
 
