@@ -708,7 +708,21 @@ async function renderRoundDetail(roundId) {
       </div>`;
   }
 
-  // 사진
+  // 스코어카드 사진
+  let scorecardHTML = '';
+  if (r.scorecardPhotos && r.scorecardPhotos.length > 0) {
+    const thumbs = await Promise.all(r.scorecardPhotos.map(async pid => {
+      const data = await getPhoto(pid);
+      return data ? `<div class="photo-thumb-wrap"><img class="photo-thumb" src="${data}" onclick="viewPhoto('${pid}')"></div>` : '';
+    }));
+    scorecardHTML = `
+      <div class="detail-section">
+        <div class="section-label">📋 스코어카드 (${r.scorecardPhotos.length}장)</div>
+        <div class="photo-preview-row" style="padding:0 16px 16px">${thumbs.join('')}</div>
+      </div>`;
+  }
+
+  // 라운드 사진
   let photoHTML = '';
   if (r.photos && r.photos.length > 0) {
     const thumbs = await Promise.all(r.photos.map(async pid => {
@@ -717,7 +731,7 @@ async function renderRoundDetail(roundId) {
     }));
     photoHTML = `
       <div class="detail-section">
-        <div class="section-label">사진 (${r.photos.length}장)</div>
+        <div class="section-label">📷 라운드 사진 (${r.photos.length}장)</div>
         <div class="photo-preview-row" style="padding:0 16px 16px">${thumbs.join('')}</div>
       </div>`;
   }
@@ -840,6 +854,7 @@ async function renderRoundDetail(roundId) {
     </div>
 
     ${scoreHTML}
+    ${scorecardHTML}
     ${photoHTML}
     ${memoHTML}
 
@@ -1354,8 +1369,15 @@ function openScoreEntry(roundId) {
     </div>
 
     <div class="form-group" style="padding-top:16px">
-      <label class="form-label">📷 사진 추가 (스코어카드 · 라운드)</label>
-      <label class="photo-attach-btn" for="round-photo-input">사진 추가하기</label>
+      <label class="form-label">📋 스코어카드 사진</label>
+      <label class="photo-attach-btn" for="scorecard-photo-input">스코어카드 사진 추가</label>
+      <input type="file" id="scorecard-photo-input" accept="image/*" multiple style="display:none" onchange="addScorecardPhotos(event,'${roundId}')">
+      <div id="scorecard-preview" class="photo-preview-row"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">📷 라운드 사진</label>
+      <label class="photo-attach-btn" for="round-photo-input">라운드 사진 추가</label>
       <input type="file" id="round-photo-input" accept="image/*" multiple style="display:none" onchange="addRoundPhotos(event,'${roundId}')">
       <div id="photo-preview" class="photo-preview-row"></div>
     </div>
@@ -1371,14 +1393,35 @@ function openScoreEntry(roundId) {
   `;
   openModal(html);
 
+  // 기존 스코어카드 사진
+  if (r.scorecardPhotos && r.scorecardPhotos.length > 0) {
+    r.scorecardPhotos.forEach(async pid => {
+      const data = await getPhoto(pid);
+      if (data) addPhotoThumbTo('scorecard-preview', data, pid, roundId, true);
+    });
+  }
+  // 기존 라운드 사진
   if (r.photos && r.photos.length > 0) {
     r.photos.forEach(async pid => {
       const data = await getPhoto(pid);
-      if (data) addPhotoThumb(data, pid);
+      if (data) addPhotoThumbTo('photo-preview', data, pid, roundId, false);
     });
   }
 }
 
+
+async function addScorecardPhotos(event, roundId) {
+  const files = Array.from(event.target.files);
+  for (const file of files) {
+    const dataUrl = await compressImage(file);
+    const pid = uid();
+    await savePhoto(pid, dataUrl);
+    const r = state.rounds.find(x => x.id === roundId);
+    if (r) { if (!r.scorecardPhotos) r.scorecardPhotos = []; r.scorecardPhotos.push(pid); }
+    addPhotoThumbTo('scorecard-preview', dataUrl, pid, roundId, true);
+  }
+  saveState();
+}
 
 async function addRoundPhotos(event, roundId) {
   const files = Array.from(event.target.files);
@@ -1388,25 +1431,30 @@ async function addRoundPhotos(event, roundId) {
     await savePhoto(pid, dataUrl);
     const r = state.rounds.find(x => x.id === roundId);
     if (r) { if (!r.photos) r.photos = []; r.photos.push(pid); }
-    addPhotoThumb(dataUrl, pid);
+    addPhotoThumbTo('photo-preview', dataUrl, pid, roundId, false);
   }
   saveState();
 }
 
-function addPhotoThumb(dataUrl, pid) {
-  const row = document.getElementById('photo-preview');
+function addPhotoThumbTo(containerId, dataUrl, pid, roundId, isScorecard) {
+  const row = document.getElementById(containerId);
   if (!row) return;
   const wrap = document.createElement('div');
   wrap.className = 'photo-thumb-wrap';
   wrap.dataset.pid = pid;
-  wrap.innerHTML = `<img class="photo-thumb" src="${dataUrl}"><button class="photo-remove" onclick="removePhoto('${pid}')">×</button>`;
+  wrap.innerHTML = `<img class="photo-thumb" src="${dataUrl}" onclick="viewPhoto('${pid}')"><button class="photo-remove" onclick="removePhoto('${pid}',${isScorecard})">×</button>`;
   row.appendChild(wrap);
 }
 
-async function removePhoto(pid) {
+function addPhotoThumb(dataUrl, pid) {
+  addPhotoThumbTo('photo-preview', dataUrl, pid, null, false);
+}
+
+async function removePhoto(pid, isScorecard) {
   await deletePhoto(pid);
   state.rounds.forEach(r => {
-    if (r.photos) r.photos = r.photos.filter(p => p !== pid);
+    if (isScorecard && r.scorecardPhotos) r.scorecardPhotos = r.scorecardPhotos.filter(p => p !== pid);
+    if (!isScorecard && r.photos) r.photos = r.photos.filter(p => p !== pid);
   });
   saveState();
   const wrap = document.querySelector(`.photo-thumb-wrap[data-pid="${pid}"]`);
