@@ -1214,7 +1214,7 @@ function addCompanionInput(value = '') {
     <input class="form-input companion-name" type="text" placeholder="이름" value="${value}">
     <button class="companion-remove" onclick="this.parentElement.remove()">×</button>`;
   wrap.appendChild(row);
-  if (!value) row.querySelector('.companion-name').focus();
+  if (!value) setTimeout(() => row.querySelector('.companion-name').focus(), 100);
 }
 
 function doParse() {
