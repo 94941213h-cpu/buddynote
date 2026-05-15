@@ -306,6 +306,7 @@ async function fetchWeather(lat, lng, dateStr) {
         minTemp: Math.round(data.daily.temperature_2m_min[0]),
         rainProb: data.daily.precipitation_probability_max[0],
         wind: Math.round(data.daily.windspeed_10m_max[0]),
+        fetchedAt: Date.now(),
       };
     }
   } catch (e) {}
@@ -462,6 +463,14 @@ function formatDateFull(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const days = ['일','월','화','수','목','금','토'];
   return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+function timeAgo(ts) {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return '방금 전';
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+  return `${Math.floor(diff / 86400)}일 전`;
 }
 
 function getRoundStatus(round) {
@@ -647,6 +656,7 @@ async function renderRoundDetail(roundId) {
   if (wx && wxI) {
     const rainLabel = wx.rainProb > 0 ? `강수확률 ${wx.rainProb}%` : '';
     const conditions = [rainLabel, `바람 ${wx.wind}m/s`].filter(Boolean).join(' · ');
+    const fetchedLabel = wx.fetchedAt ? `업데이트 ${timeAgo(wx.fetchedAt)}` : '';
     weatherHTML = `
       <div class="weather-card">
         <div class="weather-icon">${wxI.emoji}</div>
@@ -654,6 +664,7 @@ async function renderRoundDetail(roundId) {
           <div class="weather-temp">${wx.maxTemp}° / ${wx.minTemp}°</div>
           <div class="weather-desc">${wxI.desc}</div>
           <div class="weather-detail">${conditions}</div>
+          ${fetchedLabel ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${fetchedLabel}</div>` : ''}
         </div>
       </div>`;
   } else {
@@ -928,15 +939,23 @@ function renderPrepareTab() {
       <div class="checklist-group-title">${cat}</div>`;
     items.forEach(item => {
       const badge = item.wx ? `<div class="item-weather-badge">${cat}</div>` : '';
+      const del = item.custom ? `<button onclick="event.stopPropagation();removeCustomCheckItem('${r.id}','${item.id}')" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:18px;padding:0 4px;cursor:pointer">×</button>` : '';
       html += `
         <div class="checklist-item ${item.checked ? 'checked' : ''}" data-round="${r.id}" data-item="${item.id}" onclick="toggleCheck('${r.id}','${item.id}')">
           <div class="checkbox ${item.checked ? 'on' : ''}"></div>
           <div class="item-name">${item.name}</div>
-          ${badge}
+          ${badge}${del}
         </div>`;
     });
     html += `</div>`;
   });
+
+  html += `
+    <div style="padding:12px 16px 24px">
+      <button onclick="addCustomCheckItem('${r.id}')" style="width:100%;padding:12px;border-radius:14px;border:2px dashed var(--green-light);background:transparent;color:var(--green);font-size:14px;font-weight:600;cursor:pointer">
+        + 준비물 직접 추가
+      </button>
+    </div>`;
 
   el.innerHTML = html;
 }
@@ -962,11 +981,11 @@ function initChecklist(round) {
   }));
 }
 
-// 날씨 갱신 시: checked 상태 유지, enabled만 재계산
+// 날씨 갱신 시: checked 상태 유지, enabled만 재계산, 커스텀 아이템 보존
 function refreshChecklist(round) {
   const cond = getWxConditions(round);
   const prev = round.checklist || [];
-  return CHECKLIST.map(item => {
+  const base = CHECKLIST.map(item => {
     const existing = prev.find(x => x.id === item.id);
     return {
       ...item,
@@ -974,6 +993,27 @@ function refreshChecklist(round) {
       enabled: wxItemVisible(item, cond),
     };
   });
+  const customs = prev.filter(x => x.custom);
+  return [...base, ...customs];
+}
+
+function addCustomCheckItem(roundId) {
+  const name = prompt('추가할 준비물을 입력하세요');
+  if (!name || !name.trim()) return;
+  const r = state.rounds.find(x => x.id === roundId);
+  if (!r) return;
+  if (!r.checklist) r.checklist = initChecklist(r);
+  r.checklist.push({ id: 'custom_' + Date.now(), name: name.trim(), cat: '✏️ 개인 준비물', checked: false, custom: true });
+  saveState();
+  renderPrepareTab();
+}
+
+function removeCustomCheckItem(roundId, itemId) {
+  const r = state.rounds.find(x => x.id === roundId);
+  if (!r || !r.checklist) return;
+  r.checklist = r.checklist.filter(x => x.id !== itemId);
+  saveState();
+  renderPrepareTab();
 }
 
 function toggleCheck(roundId, itemId) {
