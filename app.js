@@ -1354,14 +1354,9 @@ function openScoreEntry(roundId) {
     </div>
 
     <div class="form-group" style="padding-top:16px">
-      <label class="form-label">📸 스코어카드 · 사진 추가</label>
-      <div style="display:flex;gap:8px">
-        <label class="photo-attach-btn" for="score-photo-input" style="flex:1;text-align:center">스코어카드 (자동인식)</label>
-        <label class="photo-attach-btn" for="round-photo-input" style="flex:1;text-align:center">라운드 사진</label>
-      </div>
-      <input type="file" id="score-photo-input" accept="image/*" style="display:none" onchange="doOCR(event,'${roundId}')">
+      <label class="form-label">📷 사진 추가 (스코어카드 · 라운드)</label>
+      <label class="photo-attach-btn" for="round-photo-input">사진 추가하기</label>
       <input type="file" id="round-photo-input" accept="image/*" multiple style="display:none" onchange="addRoundPhotos(event,'${roundId}')">
-      <div id="ocr-status" class="ocr-status">스코어카드 사진을 찍으면 총합을 자동인식해요</div>
       <div id="photo-preview" class="photo-preview-row"></div>
     </div>
 
@@ -1384,56 +1379,6 @@ function openScoreEntry(roundId) {
   }
 }
 
-async function doOCR(event, roundId) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const statusEl = document.getElementById('ocr-status');
-  statusEl.className = 'ocr-status loading';
-  statusEl.textContent = '⏳ 스코어 인식 중...';
-
-  try {
-    // Tesseract.js 동적 로드
-    if (!window.Tesseract) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = window.TESSERACT_CDN;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-    }
-
-    const r = state.rounds.find(x => x.id === roundId);
-    const companionCount = (r && r.companions) ? r.companions.length : 0;
-
-    const worker = await Tesseract.createWorker('kor+eng');
-    const dataUrl = await compressImage(file, 1600, 0.9);
-    const { data: { text } } = await worker.recognize(dataUrl);
-    await worker.terminate();
-
-    // 숫자 추출 — 골프 스코어 범위 (40~130)
-    const nums = [...text.matchAll(/\b(\d{2,3})\b/g)]
-      .map(m => parseInt(m[1]))
-      .filter(n => n >= 40 && n <= 150);
-
-    if (nums.length > 0) {
-      document.getElementById('score-me').value = nums[0];
-      for (let i = 0; i < companionCount && i + 1 < nums.length; i++) {
-        const el = document.getElementById(`score-comp-${i}`);
-        if (el) el.value = nums[i + 1];
-      }
-      statusEl.className = 'ocr-status';
-      statusEl.textContent = `✅ 인식 완료! 스코어를 확인하고 수정해주세요`;
-    } else {
-      statusEl.className = 'ocr-status';
-      statusEl.textContent = '인식이 어려워요. 직접 입력해주세요 ✏️';
-    }
-  } catch (e) {
-    statusEl.className = 'ocr-status';
-    statusEl.textContent = 'OCR 오류. 직접 입력해주세요 ✏️';
-  }
-}
 
 async function addRoundPhotos(event, roundId) {
   const files = Array.from(event.target.files);
@@ -1487,9 +1432,16 @@ async function saveScore(roundId) {
   saveState();
   closeModal();
 
+  // 완료된 라운드는 라운드탭에서 제거 — 상세뷰 닫고 기록탭으로 이동
+  if (state.viewingRoundId === roundId) {
+    state.viewingRoundId = null;
+    document.getElementById('reservation-detail-view').classList.add('hidden');
+    document.getElementById('reservation-list-view').classList.remove('hidden');
+    document.getElementById('btn-back').classList.add('hidden');
+    document.getElementById('header-title').textContent = '버디노트';
+  }
   renderReservationTab();
   renderHistoryTab();
-  if (state.viewingRoundId === roundId) renderRoundDetail(roundId);
   showToast('기록이 저장됐어요 🏆');
 }
 
@@ -1889,7 +1841,6 @@ async function init() {
 window.openNav = openNav;
 window.openNaverRestaurants = openNaverRestaurants;
 window.openScoreEntry = openScoreEntry;
-window.doOCR = doOCR;
 window.addRoundPhotos = addRoundPhotos;
 window.removePhoto = removePhoto;
 window.addPhotoThumb = addPhotoThumb;
