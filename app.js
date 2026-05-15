@@ -367,16 +367,22 @@ function stripCourseSuffix(name) {
 function openNaverRestaurants(roundId) {
   const r = state.rounds.find(x => x.id === roundId);
   if (!r) return;
-  const name = stripCourseSuffix(r.courseName || '골프장');
-  const query = encodeURIComponent(name + ' 맛집');
 
-  // 모바일이면 앱 딥링크 먼저, 실패하면 웹
-  if (/android|iphone|ipad/i.test(navigator.userAgent) && r.courseCoords) {
+  if (r.courseCoords) {
     const { lat, lng } = r.courseCoords;
-    window.location.href = `nmap://search?query=${encodeURIComponent(name + ' 맛집')}&lat=${lat}&lng=${lng}&appname=com.buddynote`;
-    setTimeout(() => window.open(`https://map.naver.com/v5/search/${query}`, '_blank'), 1500);
+    // 좌표 기준으로 음식점 검색 (거리순)
+    const webUrl = `https://map.naver.com/v5/search/음식점?c=${lng},${lat},15,0,0,0,dh`;
+    const isMobile = /android|iphone|ipad/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = `nmap://search?query=음식점&lat=${lat}&lng=${lng}&appname=com.buddynote`;
+      setTimeout(() => window.open(webUrl, '_blank'), 1500);
+    } else {
+      window.open(webUrl, '_blank');
+    }
   } else {
-    window.open(`https://map.naver.com/v5/search/${query}`, '_blank');
+    // 좌표 없으면 골프장명으로 검색
+    const name = stripCourseSuffix(r.courseName || '골프장');
+    window.open(`https://map.naver.com/v5/search/${encodeURIComponent(name + ' 음식점')}`, '_blank');
   }
 }
 
@@ -845,9 +851,9 @@ async function renderRoundDetail(roundId) {
       <div class="section-label">근처 맛집</div>
       <div class="detail-card">
         <div style="padding:16px">
-          <div style="font-size:13px;color:var(--text2);margin-bottom:12px">골프장 주변 맛집을 네이버 지도에서 확인해요</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:12px">골프장 위치 기준 가까운 음식점 순으로 표시돼요</div>
           <button onclick="openNaverRestaurants('${r.id}')" style="width:100%;padding:14px;background:#03C75A;color:white;border-radius:12px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px">
-            <span>🍽️</span> 네이버 지도에서 주변 맛집 보기
+            <span>🍽️</span> 네이버 지도에서 주변 음식점 보기
           </button>
         </div>
       </div>
